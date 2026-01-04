@@ -26,81 +26,10 @@ Wenn du auf einer Website auf einen Link zu einer Kalenderdatei (`.ics`, `.ical`
 
 ## Installation
 
-### Option 1: Temporäre Installation (zum Testen)
-
-1. Öffne Firefox und navigiere zu `about:debugging#/runtime/this-firefox`
-2. Klicke auf **"Temporäres Add-on laden..."**
-3. Wähle die Datei `manifest.json` aus dem icspresso-Ordner
-4. Die Extension ist jetzt aktiv (bis Firefox geschlossen wird)
-
-**Hinweis:** Temporäre Add-ons werden bei jedem Firefox-Neustart entfernt.
-
-### Option 2: Permanente Installation (signiertes Add-on)
-
-Für eine permanente Installation muss das Add-on von Mozilla signiert werden.
-
-#### Schritt 1: ZIP-Datei erstellen
-
-```bash
-cd /pfad/zu/icspresso
-7z a icspresso.zip manifest.json background.js
-# oder mit zip:
-zip -r icspresso.zip manifest.json background.js
-```
-
-#### Schritt 2: Mozilla-Entwicklerkonto erstellen
-
-1. Gehe zu https://addons.mozilla.org/developers/
-2. Erstelle ein Konto oder melde dich an
-
-#### Schritt 3: Add-on hochladen
-
-1. Gehe zu https://addons.mozilla.org/developers/addon/submit/distribution
-2. Wähle eine Verteilungsoption:
-   - **"Auf dieser Seite"** - Öffentlich im Mozilla Add-on Store
-   - **"Selbstständig"** - Nur für dich, nicht öffentlich gelistet
-3. Lade die `icspresso.zip` hoch
-4. Fülle die erforderlichen Informationen aus
-5. Warte auf die automatische Signierung (meist 1-5 Minuten)
-
-#### Schritt 4: Signiertes XPI herunterladen
-
-1. Gehe zu https://addons.mozilla.org/developers/addons
-2. Klicke auf **icspresso**
-3. Gehe zu **"Versionen verwalten"** (linke Seitenleiste)
-4. Klicke auf den Download-Link neben der Version
-5. Speichere die `.xpi`-Datei
-
-#### Schritt 5: XPI installieren
-
-1. Öffne Firefox
-2. Gehe zu `about:addons`
-3. Klicke auf das Zahnrad-Symbol ⚙️
-4. Wähle **"Add-on aus Datei installieren..."**
-5. Wähle die heruntergeladene `.xpi`-Datei
-
-### Option 3: Self-Signing mit web-ext (Kommandozeile)
-
-Für automatisierte Builds oder wenn du die Web-Oberfläche nicht nutzen möchtest:
-
-#### API-Schlüssel generieren
-
-1. Gehe zu https://addons.mozilla.org/developers/addon/api/key/
-2. Generiere einen neuen API-Schlüssel
-3. Notiere **JWT issuer** und **JWT secret**
-
-#### web-ext installieren und signieren
-
-```bash
-# web-ext installieren
-npm install -g web-ext
-
-# Add-on signieren
-cd /pfad/zu/icspresso
-web-ext sign --api-key=DEIN_JWT_ISSUER --api-secret=DEIN_JWT_SECRET
-
-# Die signierte .xpi wird im Ordner web-ext-artifacts/ erstellt
-```
+1. Lade die `.xpi`-Datei von den [Releases](../../releases) herunter
+2. Öffne Firefox und gehe zu `about:addons`
+3. Klicke auf das Zahnrad-Symbol und wähle **"Add-on aus Datei installieren..."**
+4. Wähle die heruntergeladene `.xpi`-Datei
 
 ## Berechtigungen
 
@@ -131,14 +60,6 @@ Die Extension benötigt folgende Berechtigungen:
 - Nur Firefox (keine Chrome-Unterstützung)
 - Wiederkehrende Termine werden nicht als echte Wiederholungen erstellt, sondern nur als Text in der Beschreibung
 - Erinnerungen aus der ICS-Datei werden ignoriert (Google Calendar nutzt deine Standard-Einstellungen)
-
-## Links
-
-- **Mozilla Add-on Developer Hub:** https://addons.mozilla.org/developers/
-- **Add-on hochladen:** https://addons.mozilla.org/developers/addon/submit/distribution
-- **API-Schlüssel generieren:** https://addons.mozilla.org/developers/addon/api/key/
-- **Temporäre Add-ons laden:** `about:debugging#/runtime/this-firefox`
-- **Installierte Add-ons verwalten:** `about:addons`
 
 ## Lizenz
 
