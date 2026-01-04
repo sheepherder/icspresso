@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "icspresso",
+  "version": "1.1.0",
+  "description": "Intercepts .ics calendar downloads and adds events to Google Calendar",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "icspresso@schaefer",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
+    "notifications"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  }
+}
