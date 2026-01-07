@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-icspresso is a Firefox WebExtension that intercepts `.ics` calendar file downloads and opens them directly in Google Calendar. It uses Manifest V2 for `webRequestBlocking` support.
+icspresso is a Firefox WebExtension that intercepts calendar file downloads (based on Content-Type) and opens them directly in Google Calendar. It uses Manifest V2 for `webRequestBlocking` support.
 
 ## Build & Package
 
@@ -23,11 +23,12 @@ Temporary testing in Firefox:
 The extension consists of a single background script (`background.js`) with no external dependencies.
 
 **Request Interception Flow:**
-1. `onBeforeRequest` listener matches ICS URL patterns (`*.ics`, `*.ical`, `*.ifb`, `*.vcs`)
-2. Only intercepts `main_frame` requests (not XHR/fetch) to preserve page functionality
-3. Uses Firefox-specific `filterResponseData()` API to capture response body while keeping original cookies/auth
-4. `onHeadersReceived` listener changes `Content-Type` to `text/html` to prevent browser download dialog
-5. `handledRequests` Set synchronizes between the two listeners (tracks which requests are being handled)
+1. `onBeforeRequest` listener intercepts ALL `main_frame` requests (page navigations)
+2. Uses Firefox-specific `filterResponseData()` API to capture response body while keeping original cookies/auth
+3. `onHeadersReceived` listener checks Content-Type for calendar MIME types (`text/calendar`, `application/ics`, etc.)
+4. If calendar: marks request, changes Content-Type to `text/html` to prevent download dialog
+5. If not calendar: passes through original data unchanged
+6. `handledRequests` Map synchronizes between the two listeners (tracks request state)
 
 **ICS Parsing:**
 - `unfoldIcsLines()`: Handles RFC 5545 line folding (continuation lines starting with space/tab)
@@ -45,4 +46,6 @@ The extension consists of a single background script (`background.js`) with no e
 
 - **Manifest V2**: Required for `webRequestBlocking` permission (Manifest V3 doesn't support synchronous request blocking)
 - **filterResponseData vs fetch**: Must use `filterResponseData` to maintain original request cookies for authenticated calendar downloads
-- **Two-listener pattern**: `onBeforeRequest` captures body, `onHeadersReceived` fixes headers - both needed because headers determine download behavior before body is processed
+- **Content-Type based detection**: Intercepts ALL main_frame requests and decides based on Content-Type header, not URL patterns. This catches calendar files from services like Wix that use dynamic URLs without `.ics` extension
+- **Two-listener pattern**: `onBeforeRequest` sets up filter and captures body, `onHeadersReceived` checks Content-Type and marks calendar requests - both needed because headers arrive after request starts but before body completes
+- **Passthrough for non-calendar**: Non-calendar responses are buffered and written back unchanged, ensuring normal browsing isn't affected

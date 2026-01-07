@@ -1,14 +1,11 @@
 // icspresso - Firefox WebExtension background script
 
-const ICS_URL_PATTERNS = [
-  "*://*/*.ics",
-  "*://*/*.ics?*",
-  "*://*/*.ical",
-  "*://*/*.ical?*",
-  "*://*/*.ifb",
-  "*://*/*.ifb?*",
-  "*://*/*.vcs",
-  "*://*/*.vcs?*"
+// Content-Types that indicate calendar data
+const CALENDAR_CONTENT_TYPES = [
+  'text/calendar',
+  'application/ics',
+  'application/icalendar',
+  'text/x-vcalendar'
 ];
 
 // Common timezone offsets (best effort)
@@ -239,7 +236,7 @@ function buildGoogleCalendarUrl(event, sourceUrl) {
 
   if (sourceUrl) {
     if (details) details += '\n\n';
-    details += 'Source: ' + sourceUrl + '\n';
+    details += '<i><a href="' + sourceUrl + '">' + sourceUrl + '</a></i>';
   }
 
   if (details.length > 1500) {
@@ -281,41 +278,51 @@ function processIcsData(icsText, tabId, sourceUrl) {
   }
 }
 
-// Track request IDs we're handling
-const handledRequests = new Set();
+// Track request IDs and their calendar status
+const handledRequests = new Map();
 
-// Intercept ICS file requests and capture response using filterResponseData
+function isCalendarContentType(contentType) {
+  if (!contentType) return false;
+  const lower = contentType.toLowerCase();
+  return CALENDAR_CONTENT_TYPES.some(ct => lower.includes(ct));
+}
+
+// Intercept all main_frame requests and filter based on Content-Type
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
-    // Only intercept main document navigations (not XHR, fetch, etc.)
-    if (details.type !== 'main_frame') {
-      return {};
-    }
-
-    handledRequests.add(details.requestId);
-
     const filter = browser.webRequest.filterResponseData(details.requestId);
     const decoder = new TextDecoder('utf-8');
-    const chunks = [];
+    const textChunks = [];
+    const rawChunks = [];
 
     filter.ondata = (event) => {
-      chunks.push(decoder.decode(event.data, { stream: true }));
+      rawChunks.push(new Uint8Array(event.data));
+      textChunks.push(decoder.decode(event.data, { stream: true }));
     };
 
     filter.onstop = () => {
-      const icsText = chunks.join('') + decoder.decode();
+      const requestInfo = handledRequests.get(details.requestId);
+      handledRequests.delete(details.requestId);
 
-      // Write a simple page to show while redirecting
-      const encoder = new TextEncoder();
-      filter.write(encoder.encode(`<!DOCTYPE html><html><head><title>icspresso</title>
+      if (requestInfo && requestInfo.isCalendar) {
+        // Calendar file - process it
+        const icsText = textChunks.join('') + decoder.decode();
+
+        const encoder = new TextEncoder();
+        filter.write(encoder.encode(`<!DOCTYPE html><html><head><title>icspresso</title>
 <style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f5f5f5}
 .msg{text-align:center;color:#333}h1{font-size:24px;margin:0 0 8px}</style></head>
 <body><div class="msg"><h1>icspresso</h1>Opening in Google Calendar...</div></body></html>`));
-      filter.close();
+        filter.close();
 
-      handledRequests.delete(details.requestId);
-      // Use originUrl (the page with the link) instead of the .ics URL
-      processIcsData(icsText, details.tabId, details.originUrl);
+        processIcsData(icsText, details.tabId, details.originUrl);
+      } else {
+        // Not a calendar file - pass through original data
+        for (const chunk of rawChunks) {
+          filter.write(chunk);
+        }
+        filter.close();
+      }
     };
 
     filter.onerror = () => {
@@ -323,26 +330,42 @@ browser.webRequest.onBeforeRequest.addListener(
       filter.disconnect();
     };
 
+    // Mark request as being filtered, calendar status determined in onHeadersReceived
+    handledRequests.set(details.requestId, { isCalendar: false });
+
     return {};
   },
-  { urls: ICS_URL_PATTERNS },
+  { urls: ['<all_urls>'], types: ['main_frame'] },
   ['blocking']
 );
 
-// Change Content-Type to text/html to prevent download behavior
+// Check Content-Type to identify calendar files
 browser.webRequest.onHeadersReceived.addListener(
   (details) => {
-    if (!handledRequests.has(details.requestId)) {
+    const requestInfo = handledRequests.get(details.requestId);
+    if (!requestInfo) {
       return {};
     }
 
-    const headers = details.responseHeaders.filter(
-      h => h.name.toLowerCase() !== 'content-type' && h.name.toLowerCase() !== 'content-disposition'
+    const contentTypeHeader = details.responseHeaders.find(
+      h => h.name.toLowerCase() === 'content-type'
     );
-    headers.push({ name: 'Content-Type', value: 'text/html; charset=utf-8' });
 
-    return { responseHeaders: headers };
+    if (isCalendarContentType(contentTypeHeader?.value)) {
+      requestInfo.isCalendar = true;
+
+      // Modify headers to prevent download dialog
+      const headers = details.responseHeaders.filter(
+        h => h.name.toLowerCase() !== 'content-type' &&
+             h.name.toLowerCase() !== 'content-disposition'
+      );
+      headers.push({ name: 'Content-Type', value: 'text/html; charset=utf-8' });
+
+      return { responseHeaders: headers };
+    }
+
+    return {};
   },
-  { urls: ICS_URL_PATTERNS },
+  { urls: ['<all_urls>'], types: ['main_frame'] },
   ['blocking', 'responseHeaders']
 );
