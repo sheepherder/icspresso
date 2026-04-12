@@ -8,17 +8,50 @@ const CALENDAR_CONTENT_TYPES = [
   'text/x-vcalendar'
 ];
 
-// Common timezone offsets (best effort)
+// Fallback offsets for non-IANA TZIDs (abbreviations); IANA zones use Intl API
 const TIMEZONE_OFFSETS = {
-  'America/New_York': -5, 'America/Chicago': -6, 'America/Denver': -7,
-  'America/Los_Angeles': -8, 'America/Anchorage': -9, 'Pacific/Honolulu': -10,
-  'Europe/London': 0, 'Europe/Paris': 1, 'Europe/Berlin': 1,
-  'Europe/Moscow': 3, 'Asia/Dubai': 4, 'Asia/Kolkata': 5.5,
-  'Asia/Shanghai': 8, 'Asia/Tokyo': 9, 'Australia/Sydney': 11,
-  'Pacific/Auckland': 13, 'UTC': 0, 'GMT': 0,
+  'UTC': 0, 'GMT': 0,
   'EST': -5, 'CST': -6, 'MST': -7, 'PST': -8,
   'EDT': -4, 'CDT': -5, 'MDT': -6, 'PDT': -7
 };
+
+const dtfCache = new Map();
+function getDtf(tzid) {
+  let dtf = dtfCache.get(tzid);
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tzid, hourCycle: 'h23',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    dtfCache.set(tzid, dtf);
+  }
+  return dtf;
+}
+
+function localOffsetMs(dtf, utcMs) {
+  const parts = {};
+  for (const p of dtf.formatToParts(new Date(utcMs))) {
+    if (p.type !== 'literal') parts[p.type] = p.value;
+  }
+  const asLocal = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return asLocal - utcMs;
+}
+
+// Returns UTC ms for a wall-clock time in a named timezone, or null if unknown.
+// Two-pass correction so wall times near DST transitions resolve correctly.
+function wallTimeToUtc(tzid, year, month, day, hour, min, sec) {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, min, sec);
+  try {
+    const dtf = getDtf(tzid);
+    const firstPass = utcGuess - localOffsetMs(dtf, utcGuess);
+    return utcGuess - localOffsetMs(dtf, firstPass);
+  } catch (e) {
+    const offset = TIMEZONE_OFFSETS[tzid];
+    if (offset === undefined) return null;
+    return utcGuess - offset * 3600 * 1000;
+  }
+}
 
 const FREQ_MAP = {
   'DAILY': 'daily',
@@ -98,22 +131,21 @@ function parseIcsDate(dateStr, tzid) {
   }
 
   if (/^\d{8}T\d{6}$/.test(dateStr)) {
-    const offset = tzid ? TIMEZONE_OFFSETS[tzid] : null;
-    if (offset !== null && offset !== undefined) {
-      const year = parseInt(dateStr.slice(0, 4));
-      const month = parseInt(dateStr.slice(4, 6)) - 1;
-      const day = parseInt(dateStr.slice(6, 8));
-      const hour = parseInt(dateStr.slice(9, 11));
-      const min = parseInt(dateStr.slice(11, 13));
-      const sec = parseInt(dateStr.slice(13, 15));
-
-      const asUtcMs = Date.UTC(year, month, day, hour, min, sec);
-      const actualUtcMs = asUtcMs - (offset * 60 * 60 * 1000);
-      const utcDate = new Date(actualUtcMs);
-
-      const pad = n => n.toString().padStart(2, '0');
-      const utcStr = `${utcDate.getUTCFullYear()}${pad(utcDate.getUTCMonth() + 1)}${pad(utcDate.getUTCDate())}T${pad(utcDate.getUTCHours())}${pad(utcDate.getUTCMinutes())}${pad(utcDate.getUTCSeconds())}Z`;
-      return { allDay: false, date: utcStr };
+    if (tzid) {
+      const utcMs = wallTimeToUtc(
+        tzid,
+        parseInt(dateStr.slice(0, 4)),
+        parseInt(dateStr.slice(4, 6)),
+        parseInt(dateStr.slice(6, 8)),
+        parseInt(dateStr.slice(9, 11)),
+        parseInt(dateStr.slice(11, 13)),
+        parseInt(dateStr.slice(13, 15))
+      );
+      if (utcMs !== null) {
+        const d = new Date(utcMs);
+        const pad = n => n.toString().padStart(2, '0');
+        return { allDay: false, date: `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z` };
+      }
     }
     return { allDay: false, date: dateStr + 'Z' };
   }
