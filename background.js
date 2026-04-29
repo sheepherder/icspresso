@@ -239,6 +239,8 @@ function buildGoogleCalendarUrl(event, sourceUrl) {
 
   if (event.dtstart) {
     let dates = event.dtstart.date;
+    // TODO: DTEND == DTSTART (or missing) produces a zero-duration event in Google Calendar;
+    // some generators set this when end time is unknown — consider defaulting to 1h
     if (event.dtend) {
       dates += '/' + event.dtend.date;
     } else {
