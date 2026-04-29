@@ -4,18 +4,18 @@ Eine Firefox-WebExtension, die `.ics`-Kalenderdateien abfängt und direkt in Goo
 
 ## Was macht icspresso?
 
-Wenn du auf einer Website auf einen Link zu einer Kalenderdatei (`.ics`, `.ical`, `.ifb`, `.vcs`) klickst, passiert normalerweise Folgendes: Die Datei wird heruntergeladen und du musst sie manuell in deinen Kalender importieren.
+Wenn du auf einer Website auf einen Link zu einer Kalenderdatei klickst, passiert normalerweise Folgendes: Die Datei wird heruntergeladen und du musst sie manuell in deinen Kalender importieren.
 
 **icspresso** vereinfacht diesen Prozess:
 
-1. Erkennt automatisch, wenn du eine Kalenderdatei öffnest
+1. Erkennt automatisch anhand des Content-Type, wenn du eine Kalenderdatei öffnest
 2. Liest die Eventdaten (Titel, Datum, Uhrzeit, Ort, Beschreibung)
 3. Öffnet Google Calendar mit allen Daten vorausgefüllt
 4. Du musst nur noch auf "Speichern" klicken
 
 ### Features
 
-- **Automatische Erkennung** von `.ics`, `.ical`, `.ifb` und `.vcs` Dateien
+- **Automatische Erkennung** anhand des Content-Type (`text/calendar`, `application/ics`, etc.)
 - **Zeitzonenkonvertierung** (Europe/Berlin, America/New_York, etc.)
 - **Ganztägige Events** werden korrekt erkannt
 - **Wiederkehrende Termine** werden als Text in der Beschreibung angezeigt
@@ -37,7 +37,7 @@ Die Extension benötigt folgende Berechtigungen:
 
 | Berechtigung | Grund |
 |--------------|-------|
-| `webRequest` | Um Anfragen zu `.ics`-Dateien zu erkennen |
+| `webRequest` | Um den Content-Type von Anfragen zu prüfen |
 | `webRequestBlocking` | Um die Antwort abzufangen und zu verarbeiten |
 | `<all_urls>` | Um Kalenderdateien von beliebigen Websites zu laden |
 | `notifications` | Um Fehlermeldungen anzuzeigen |
@@ -48,18 +48,19 @@ Die Extension benötigt folgende Berechtigungen:
 - **Firefox-spezifisch:** Nutzt `filterResponseData()` API
 - **Keine externe Abhängigkeiten:** Reines JavaScript
 
-## Unterstützte Kalenderformate
+## Unterstützte Content-Types
 
-- `.ics` (iCalendar)
-- `.ical` (iCalendar alternative Endung)
-- `.ifb` (Free/Busy)
-- `.vcs` (vCalendar, Legacy)
+- `text/calendar` (iCalendar)
+- `application/ics`
+- `application/icalendar`
+- `text/x-vcalendar` (vCalendar, Legacy)
 
 ## Bekannte Einschränkungen
 
 - Nur Firefox (keine Chrome-Unterstützung)
 - Wiederkehrende Termine werden nicht als echte Wiederholungen erstellt, sondern nur als Text in der Beschreibung
 - Erinnerungen aus der ICS-Datei werden ignoriert (Google Calendar nutzt deine Standard-Einstellungen)
+- Events ohne Endzeit (DTEND fehlt oder gleich DTSTART) werden als Null-Dauer-Event erstellt
 
 ## Lizenz
 

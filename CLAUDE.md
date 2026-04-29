@@ -33,7 +33,7 @@ The extension consists of a single background script (`background.js`) with no e
 **ICS Parsing:**
 - `unfoldIcsLines()`: Handles RFC 5545 line folding (continuation lines starting with space/tab)
 - `parseIcsValue()`: Extracts parameters (like TZID) and unescapes values
-- `parseIcsDate()`: Converts ICS dates to Google Calendar format, handles timezone conversion
+- `parseIcsDate()`: Converts ICS dates to Google Calendar format, handles timezone conversion. Floating times (no TZID, no Z) are converted via browser-local timezone
 - `parseRrule()`: Converts recurrence rules to human-readable text (Google Calendar URL doesn't support RRULE)
 
 **Google Calendar Integration:**
@@ -49,3 +49,9 @@ The extension consists of a single background script (`background.js`) with no e
 - **Content-Type based detection**: Intercepts ALL main_frame requests and decides based on Content-Type header, not URL patterns. This catches calendar files from services like Wix that use dynamic URLs without `.ics` extension
 - **Two-listener pattern**: `onBeforeRequest` sets up filter and captures body, `onHeadersReceived` checks Content-Type and marks calendar requests - both needed because headers arrive after request starts but before body completes
 - **Passthrough for non-calendar**: Non-calendar responses are buffered and written back unchanged, ensuring normal browsing isn't affected
+- **Floating time fallback**: ICS dates without TZID and without Z suffix are treated as browser-local time, not UTC. Many real-world generators omit timezone info
+
+## Known Limitations
+
+- **Zero-duration events**: When DTEND == DTSTART or DTEND is missing, the event is passed through as-is, resulting in a zero-duration event in Google Calendar. Some generators set this when end time is unknown — could default to 1h instead
+- **RRULE as text only**: Google Calendar's URL API doesn't support RRULE, so recurrence is appended as human-readable text in the description
