@@ -131,21 +131,21 @@ function parseIcsDate(dateStr, tzid) {
   }
 
   if (/^\d{8}T\d{6}$/.test(dateStr)) {
-    if (tzid) {
-      const utcMs = wallTimeToUtc(
-        tzid,
-        parseInt(dateStr.slice(0, 4)),
-        parseInt(dateStr.slice(4, 6)),
-        parseInt(dateStr.slice(6, 8)),
-        parseInt(dateStr.slice(9, 11)),
-        parseInt(dateStr.slice(11, 13)),
-        parseInt(dateStr.slice(13, 15))
-      );
-      if (utcMs !== null) {
-        const d = new Date(utcMs);
-        const pad = n => n.toString().padStart(2, '0');
-        return { allDay: false, date: `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z` };
-      }
+    // Without TZID, treat as browser-local timezone (floating time per RFC 5545)
+    const tz = tzid || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const utcMs = wallTimeToUtc(
+      tz,
+      parseInt(dateStr.slice(0, 4)),
+      parseInt(dateStr.slice(4, 6)),
+      parseInt(dateStr.slice(6, 8)),
+      parseInt(dateStr.slice(9, 11)),
+      parseInt(dateStr.slice(11, 13)),
+      parseInt(dateStr.slice(13, 15))
+    );
+    if (utcMs !== null) {
+      const d = new Date(utcMs);
+      const pad = n => n.toString().padStart(2, '0');
+      return { allDay: false, date: `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z` };
     }
     return { allDay: false, date: dateStr + 'Z' };
   }
